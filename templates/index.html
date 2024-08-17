@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Transfer App</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container my-5">
+        <h1 class="text-center mb-4">File Transfer App</h1>
+
+        <!-- Upload File Section -->
+        <div class="card mb-4">
+            <div class="card-header">Upload File</div>
+            <div class="card-body">
+                <form action="/upload" method="post" enctype="multipart/form-data" class="row g-3">
+                    <div class="col-auto">
+                        <input type="file" name="file" class="form-control">
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-primary">Upload</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Uploaded Files Section -->
+        <div class="card mb-4">
+            <div class="card-header">Uploaded Files</div>
+            <div class="card-body">
+                <ul class="list-group">
+                    {% for file in files %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>{{ file }}</span>
+                        <div>
+                            <a href="{{ url_for('download_file', filename=file) }}" class="btn btn-success btn-sm me-2">View</a>
+                            <form action="/delete/{{ file }}" method="post" class="d-inline">
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Submit Message Section -->
+        <div class="card mb-4">
+            <div class="card-header">Submit Message</div>
+            <div class="card-body">
+                <form action="/upload_message" method="post" class="row g-3">
+                    <div class="col-12">
+                        <input type="text" name="username" class="form-control" placeholder="Your Name">
+                    </div>
+                    <div class="col-12">
+                        <textarea name="message" class="form-control" placeholder="Your Message" rows="3"></textarea>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary">Submit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Messages Section -->
+        <div class="card mb-4">
+            <div class="card-header">Messages</div>
+            <div class="card-body">
+                <ul class="list-group">
+                    {% for user, msgs in messages.items() %}
+                        <li class="list-group-item">
+                            <strong>{{ user }}:</strong>
+                            <ul class="list-group">
+                                {% for msg in msgs %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span class="message-text">{{ msg }}</span>
+                                    <div>
+                                        <button class="btn btn-secondary btn-sm me-2 copy-btn">Copy</button>
+                                        <form action="/delete_message/{{ user }}/{{ loop.index0 }}" method="post" class="d-inline">
+                                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                        </form>
+                                    </div>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        <!-- Search Section -->
+        <div class="card mb-4">
+            <div class="card-header">Search Files and Messages</div>
+            <div class="card-body">
+                <form id="search-form" action="/search" method="get" class="row g-3">
+                    <div class="col-12 col-md-10">
+                        <input type="text" name="query" class="form-control" placeholder="Search for files or messages" required>
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">Search</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Search Results Section -->
+        <div id="search-results" class="card mb-4" style="display: none;">
+            <div class="card-header">Search Results</div>
+            <div class="card-body">
+                <h5>Files</h5>
+                <ul id="file-results" class="list-group mb-3"></ul>
+
+                <h5>Messages</h5>
+                <ul id="message-results" class="list-group"></ul>
+
+                <div id="no-results" class="text-center" style="display: none;">
+                    <p>No results found for "<span id="search-query"></span>".</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS and Popper.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.7/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.min.js"></script>
+    <!-- Clipboard.js for copying text -->
+    <script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.11/dist/clipboard.min.js"></script>
+    <!-- Custom JS for search results handling -->
+    <script>
+        // Initialize Clipboard.js
+        var clipboard = new ClipboardJS('.copy-btn', {
+            text: function(trigger) {
+                return trigger.closest('.list-group-item').querySelector('.message-text').textContent;
+            }
+        });
+
+        clipboard.on('success', function(e) {
+            alert('Message copied to clipboard!');
+        });
+
+        clipboard.on('error', function(e) {
+            alert('Failed to copy message.');
+        });
+        
+
+        // Handle search form submission and display results
+        document.getElementById('search-form').addEventListener('submit', function(event) {
+            event.preventDefault();  // Prevent form from submitting traditionally
+
+            const query = event.target.query.value;
+            const fileResults = document.getElementById('file-results');
+            const messageResults = document.getElementById('message-results');
+            const searchResultsSection = document.getElementById('search-results');
+            const noResults = document.getElementById('no-results');
+            const searchQueryDisplay = document.getElementById('search-query');
+
+            // Clear previous results
+            fileResults.innerHTML = '';
+            messageResults.innerHTML = '';
+            noResults.style.display = 'none';
+
+            // Perform AJAX request to get search results
+            fetch(`/search?query=${query}`)
+                .then(response => response.json())
+                .then(data => {
+                    const files = data.files;
+                    const messages = data.messages;
+
+                    if (files.length === 0 && Object.keys(messages).length === 0) {
+                        noResults.style.display = 'block';
+                        searchQueryDisplay.textContent = query;
+                    } else {
+                        // Display file results
+                        files.forEach(file => {
+                            const listItem = document.createElement('li');
+                            listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                            listItem.innerHTML = `<span>${file}</span><a href="/uploads/${file}" class="btn btn-success btn-sm">View</a>`;
+                            fileResults.appendChild(listItem);
+                        });
+
+                        // Display message results
+                        for (const [user, msg] of Object.entries(messages)) {
+                            const listItem = document.createElement('li');
+                            listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                            listItem.innerHTML = `<div><strong>${user}:</strong> <span class="message-text">${msg}</span></div><button class="btn btn-secondary btn-sm me-2 copy-btn">Copy</button>`;
+                            messageResults.appendChild(listItem);
+                        }
+                    }
+
+                    // Show the search results section
+                    searchResultsSection.style.display = 'block';
+                });
+        });
+        
+    </script>
+</body>
+</html>
